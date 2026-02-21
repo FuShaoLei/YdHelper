@@ -1,0 +1,566 @@
+<script setup>
+import { ref, computed } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { DocumentCopy, RefreshRight, Film, Subtitles, FolderOpened, List, Link } from '@element-plus/icons-vue'
+
+// URL 输入
+const url = ref('')
+
+// 视频格式预设
+const formatPreset = ref('best')
+const customFormat = ref('')
+
+// 分辨率选择
+const resolution = ref('')
+
+// 字幕选项
+const subtitleOptions = ref({
+  writeSub: false,
+  embedSub: false,
+  subLangs: '',
+  autoSubs: false
+})
+
+// 输出路径
+const outputPath = ref('./%(title)s.%(ext)s')
+
+// 播放列表选项
+const playlistOptions = ref({
+  yesPlaylist: true,
+  playlistItems: '',
+  playlistReverse: false
+})
+
+// 其他常用选项
+const otherOptions = ref({
+  writeDescription: false,
+  writeThumbnail: false,
+  extractAudio: false,
+  audioFormat: 'mp3'
+})
+
+// 计算生成的命令
+const command = computed(() => {
+  if (!url.value.trim()) {
+    return '请输入视频 URL'
+  }
+
+  let cmd = ['yt-dlp']
+
+  // 格式选择
+  if (customFormat.value) {
+    cmd.push(`-f ${customFormat.value}`)
+  } else if (resolution.value) {
+    cmd.push(`-f "bestvideo[height<=?${resolution.value}]+bestaudio/best[height<=?${resolution.value}]"`)
+  } else if (formatPreset.value) {
+    cmd.push(`-f ${formatPreset.value}`)
+  }
+
+  // 字幕选项
+  if (subtitleOptions.value.writeSub) {
+    cmd.push('--write-subs')
+  }
+  if (subtitleOptions.value.embedSub) {
+    cmd.push('--embed-subs')
+  }
+  if (subtitleOptions.value.subLangs) {
+    cmd.push(`--sub-langs ${subtitleOptions.value.subLangs}`)
+  }
+  if (subtitleOptions.value.autoSubs) {
+    cmd.push('--write-auto-subs')
+  }
+
+  // 输出路径
+  if (outputPath.value) {
+    cmd.push(`-o "${outputPath.value}"`)
+  }
+
+  // 播放列表选项
+  if (!playlistOptions.value.yesPlaylist) {
+    cmd.push('--no-playlist')
+  }
+  if (playlistOptions.value.playlistItems) {
+    cmd.push(`--playlist-items ${playlistOptions.value.playlistItems}`)
+  }
+  if (playlistOptions.value.playlistReverse) {
+    cmd.push('--playlist-reverse')
+  }
+
+  // 其他选项
+  if (otherOptions.value.writeDescription) {
+    cmd.push('--write-description')
+  }
+  if (otherOptions.value.writeThumbnail) {
+    cmd.push('--write-thumbnail')
+  }
+  if (otherOptions.value.extractAudio) {
+    cmd.push('-x')
+    cmd.push(`--audio-format ${otherOptions.value.audioFormat}`)
+  }
+
+  // URL
+  cmd.push(`"${url.value.trim()}"`)
+
+  return cmd.join(' ')
+})
+
+// 复制命令到剪贴板
+const copyCommand = async () => {
+  try {
+    await navigator.clipboard.writeText(command.value)
+    ElMessage.success('命令已复制到剪贴板！')
+  } catch (err) {
+    ElMessage.error('复制失败，请手动复制')
+  }
+}
+
+// 清空所有选项
+const resetOptions = () => {
+  ElMessageBox.confirm(
+    '确定要重置所有选项吗？',
+    '提示',
+    {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    }
+  ).then(() => {
+    url.value = ''
+    formatPreset.value = 'best'
+    customFormat.value = ''
+    resolution.value = ''
+    subtitleOptions.value = {
+      writeSub: false,
+      embedSub: false,
+      subLangs: '',
+      autoSubs: false
+    }
+    outputPath.value = './%(title)s.%(ext)s'
+    playlistOptions.value = {
+      yesPlaylist: true,
+      playlistItems: '',
+      playlistReverse: false
+    }
+    otherOptions.value = {
+      writeDescription: false,
+      writeThumbnail: false,
+      extractAudio: false,
+      audioFormat: 'mp3'
+    }
+    ElMessage.success('已重置所有选项')
+  }).catch(() => {})
+}
+</script>
+
+<template>
+  <el-container class="app-container">
+    <el-header>
+      <h1>
+        <el-icon :size="32" color="#409EFF"><Film /></el-icon>
+        yt-dlp 辅助助手
+      </h1>
+      <p class="subtitle">轻松生成 yt-dlp 下载命令</p>
+    </el-header>
+
+    <el-main>
+      <el-row :gutter="30">
+        <!-- 左侧配置区 -->
+        <el-col :xs="24" :sm="24" :md="12" :lg="12">
+          <el-space direction="vertical" :size="20" style="width: 100%">
+            <!-- 视频地址 -->
+            <el-card shadow="hover">
+              <template #header>
+                <div class="card-header">
+                  <el-icon><Link /></el-icon>
+                  <span>视频地址</span>
+                </div>
+              </template>
+              <el-input
+                v-model="url"
+                placeholder="粘贴视频 URL..."
+                size="large"
+                clearable
+              >
+                <template #prefix>
+                  <el-icon><Link /></el-icon>
+                </template>
+              </el-input>
+            </el-card>
+
+            <!-- 视频质量 -->
+            <el-card shadow="hover">
+              <template #header>
+                <div class="card-header">
+                  <el-icon><Film /></el-icon>
+                  <span>视频质量</span>
+                </div>
+              </template>
+
+              <el-form label-position="top">
+                <el-form-item label="预设格式">
+                  <el-select
+                    v-model="formatPreset"
+                    :disabled="!!customFormat || !!resolution"
+                    style="width: 100%"
+                  >
+                    <el-option label="最佳质量" value="best" />
+                    <el-option label="最佳视频+音频" value="bestvideo+bestaudio" />
+                    <el-option label="MP4 格式" value="mp4" />
+                    <el-option label="WebM 格式" value="webm" />
+                    <el-option label="最低质量" value="worst" />
+                  </el-select>
+                </el-form-item>
+
+                <el-form-item label="分辨率限制">
+                  <el-select
+                    v-model="resolution"
+                    :disabled="!!customFormat"
+                    clearable
+                    placeholder="不限制"
+                    style="width: 100%"
+                  >
+                    <el-option label="4K (2160p)" value="2160" />
+                    <el-option label="2K (1440p)" value="1440" />
+                    <el-option label="Full HD (1080p)" value="1080" />
+                    <el-option label="HD (720p)" value="720" />
+                    <el-option label="SD (480p)" value="480" />
+                    <el-option label="360p" value="360" />
+                  </el-select>
+                </el-form-item>
+
+                <el-form-item label="自定义格式 (高级)">
+                  <el-input
+                    v-model="customFormat"
+                    placeholder='如: bestvideo[height<=1080]+bestaudio'
+                    clearable
+                  />
+                </el-form-item>
+              </el-form>
+            </el-card>
+
+            <!-- 字幕选项 -->
+            <el-card shadow="hover">
+              <template #header>
+                <div class="card-header">
+                  <el-icon><Subtitles /></el-icon>
+                  <span>字幕选项</span>
+                </div>
+              </template>
+
+              <el-space direction="vertical" :size="15" style="width: 100%">
+                <el-checkbox v-model="subtitleOptions.value.writeSub" border>
+                  下载字幕
+                </el-checkbox>
+                <el-checkbox v-model="subtitleOptions.value.embedSub" border>
+                  嵌入字幕到视频
+                </el-checkbox>
+                <el-checkbox v-model="subtitleOptions.value.autoSubs" border>
+                  下载自动生成的字幕
+                </el-checkbox>
+
+                <el-input
+                  v-model="subtitleOptions.value.subLangs"
+                  placeholder="字幕语言，如: zh-Hans,en,ja"
+                  clearable
+                >
+                  <template #prefix>语言</template>
+                </el-input>
+              </el-space>
+            </el-card>
+
+            <!-- 输出设置 -->
+            <el-card shadow="hover">
+              <template #header>
+                <div class="card-header">
+                  <el-icon><FolderOpened /></el-icon>
+                  <span>输出设置</span>
+                </div>
+              </template>
+
+              <el-space direction="vertical" :size="15" style="width: 100%">
+                <el-input
+                  v-model="outputPath"
+                  placeholder="./%(title)s.%(ext)s"
+                  clearable
+                >
+                  <template #prefix>模板</template>
+                </el-input>
+
+                <el-space wrap>
+                  <el-checkbox v-model="otherOptions.value.writeDescription" border>
+                    写入描述
+                  </el-checkbox>
+                  <el-checkbox v-model="otherOptions.value.writeThumbnail" border>
+                    下载缩略图
+                  </el-checkbox>
+                  <el-checkbox v-model="otherOptions.value.extractAudio" border>
+                    仅提取音频
+                  </el-checkbox>
+                </el-space>
+
+                <el-select
+                  v-if="otherOptions.value.extractAudio"
+                  v-model="otherOptions.value.audioFormat"
+                  placeholder="音频格式"
+                  style="width: 100%"
+                >
+                  <el-option label="MP3" value="mp3" />
+                  <el-option label="M4A" value="m4a" />
+                  <el-option label="WAV" value="wav" />
+                  <el-option label="FLAC" value="flac" />
+                  <el-option label="Opus" value="opus" />
+                </el-select>
+              </el-space>
+            </el-card>
+
+            <!-- 播放列表 -->
+            <el-card shadow="hover">
+              <template #header>
+                <div class="card-header">
+                  <el-icon><List /></el-icon>
+                  <span>播放列表</span>
+                </div>
+              </template>
+
+              <el-space direction="vertical" :size="15" style="width: 100%">
+                <el-space wrap>
+                  <el-checkbox v-model="playlistOptions.value.yesPlaylist" border>
+                    下载整个播放列表
+                  </el-checkbox>
+                  <el-checkbox v-model="playlistOptions.value.playlistReverse" border>
+                    反向下载
+                  </el-checkbox>
+                </el-space>
+
+                <el-input
+                  v-model="playlistOptions.value.playlistItems"
+                  placeholder="下载范围，如: 1-5, 8, 10-15"
+                  clearable
+                >
+                  <template #prefix>范围</template>
+                </el-input>
+              </el-space>
+            </el-card>
+
+            <!-- 操作按钮 -->
+            <el-button
+              type="info"
+              :icon="RefreshRight"
+              @click="resetOptions"
+              style="width: 100%"
+            >
+              重置所有选项
+            </el-button>
+          </el-space>
+        </el-col>
+
+        <!-- 右侧命令预览区 -->
+        <el-col :xs="24" :sm="24" :md="12" :lg="12">
+          <div class="sticky-wrapper">
+            <el-card shadow="always" class="command-card">
+              <template #header>
+                <div class="command-header">
+                  <span>
+                    <el-icon :size="20" color="#409EFF"><Film /></el-icon>
+                    生成的命令
+                  </span>
+                  <el-button
+                    type="primary"
+                    :icon="DocumentCopy"
+                    @click="copyCommand"
+                  >
+                    复制命令
+                  </el-button>
+                </div>
+              </template>
+
+              <div class="command-display">
+                <el-text tag="pre" style="white-space: pre-wrap; word-break: break-all;">{{ command }}</el-text>
+              </div>
+
+              <el-divider />
+
+              <el-alert
+                title="使用提示"
+                type="info"
+                :closable="false"
+                show-icon
+              >
+                <ul class="tips-list">
+                  <li>粘贴视频 URL 后，命令会自动生成</li>
+                  <li>使用分辨率限制可以快速控制下载质量</li>
+                  <li>自定义格式支持完整的 yt-dlp 格式语法</li>
+                  <li>输出模板支持 %(title)s、%(uploader)s 等变量</li>
+                </ul>
+              </el-alert>
+            </el-card>
+          </div>
+        </el-col>
+      </el-row>
+    </el-main>
+  </el-container>
+</template>
+
+<style scoped>
+.app-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.el-header {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 20px;
+}
+
+.el-header h1 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  font-size: 2.5em;
+  color: #2c3e50;
+  font-weight: 600;
+}
+
+.subtitle {
+  margin: 10px 0 0 0;
+  font-size: 1.1em;
+  color: #666;
+}
+
+.el-main {
+  padding: 30px 20px;
+  max-width: 1600px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.sticky-wrapper {
+  position: sticky;
+  top: 20px;
+  z-index: 10;
+}
+
+.command-card {
+  border: 2px solid #409EFF;
+}
+
+.command-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.command-header span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.command-display {
+  background: #1e1e1e;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 15px;
+  min-height: 120px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.command-display pre {
+  margin: 0;
+  color: #a9b7c6;
+  font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.tips-list {
+  margin: 10px 0 0 0;
+  padding-left: 20px;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.tips-list li {
+  margin-bottom: 5px;
+}
+
+/* 自定义滚动条 */
+.command-display::-webkit-scrollbar {
+  width: 8px;
+}
+
+.command-display::-webkit-scrollbar-track {
+  background: #2d2d2d;
+  border-radius: 4px;
+}
+
+.command-display::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 4px;
+}
+
+.command-display::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}
+
+/* Element Plus 组件样式调整 */
+:deep(.el-card__header) {
+  padding: 15px 20px;
+  background: #f5f7fa;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+:deep(.el-form-item__label) {
+  font-weight: 500;
+  color: #606266;
+}
+
+:deep(.el-checkbox.is-bordered) {
+  margin-right: 10px;
+  margin-bottom: 10px;
+  border-radius: 6px;
+}
+
+:deep(.el-input__wrapper) {
+  border-radius: 6px;
+}
+
+:deep(.el-select .el-input__wrapper) {
+  border-radius: 6px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .el-header h1 {
+    font-size: 1.8em;
+  }
+
+  .command-header {
+    flex-direction: column;
+    gap: 15px;
+    align-items: stretch;
+  }
+
+  .command-header .el-button {
+    width: 100%;
+  }
+}
+</style>
