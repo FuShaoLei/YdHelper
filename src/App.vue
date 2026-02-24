@@ -6,7 +6,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 const url = ref('')
 
 // 视频格式预设
-const formatPreset = ref('bestvideo+bestaudio')
+const formatPreset = ref('')
 const customFormat = ref('')
 
 // 分辨率选择
@@ -199,7 +199,7 @@ const resetOptions = () => {
 <template>
   <div class="app-container">
     <div class="header">
-      <h1>🎬 yt-dlp 辅助助手</h1>
+      <h1>🎬 yt-dlp 助手</h1>
       <p class="subtitle">轻松生成 yt-dlp 下载命令</p>
       <el-button
         type="success"
@@ -382,7 +382,7 @@ const resetOptions = () => {
 
         <!-- 操作按钮 -->
         <el-button
-          type="info"
+          type="danger"
           @click="resetOptions"
           style="width: 100%"
         >
@@ -430,6 +430,13 @@ const resetOptions = () => {
   </div>
 </template>
 
+<style>
+* {
+  padding: 0;
+  margin: 0;
+}
+</style>
+
 <style scoped>
 .app-container {
   min-height: 100vh;
@@ -443,7 +450,7 @@ const resetOptions = () => {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
   text-align: center;
   padding: 20px;
-  border-radius: 12px;
+  border-radius: 4px;
   margin-bottom: 20px;
 }
 
